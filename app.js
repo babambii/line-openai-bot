@@ -13,7 +13,7 @@ app.use(session({
     secret: process.env.SESSION_SECRET, // セッションIDの署名に使う秘密鍵
     resave: false, // セッションが変更されなくても毎回保存するかどうか
     saveUninitialized: true, // 新規セッションを初期化するかどうか
-    cookie: { secure: false } // 開発環境ではfalse。本番環境ではtrueに設定し、httpsを利用。
+    cookie: { secure: process.env.COOKIE || false } // 開発環境ではfalse。本番環境ではtrueに設定し、httpsを利用。
 }));
 
 const config = {
