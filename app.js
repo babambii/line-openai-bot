@@ -4,6 +4,17 @@
 const express = require("express");
 const line = require("@line/bot-sdk");
 require("dotenv").config();
+const OpenAiClass = require("./openai");
+const session = require("express-session");
+
+const app = express();
+
+app.use(session({
+    secret: process.env.SESSION_SECRET, // セッションIDの署名に使う秘密鍵
+    resave: false, // セッションが変更されなくても毎回保存するかどうか
+    saveUninitialized: true, // 新規セッションを初期化するかどうか
+    cookie: { secure: false } // 開発環境ではfalse。本番環境ではtrueに設定し、httpsを利用。
+}));
 
 const config = {
     channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN,
@@ -14,27 +25,69 @@ const client = new line.messagingApi.MessagingApiClient({
     channelAccessToken: config.channelAccessToken,
 });
 
-// Expressアプリケーション設定
-const app = express();
+// Webhook応答
 app.use("/webhook", line.middleware(config));
 app.post("/webhook", (req, res) => {
-    Promise.all(req.body.events.map(handleEvent)).then((result) =>
-    res.json(result)
+    Promise.all(req.body.events.map(event => handleEvent(event, req.session))).then((result) =>
+        res.json(result)
     );
 });
 
-// オウム返し処理
-function handleEvent(event) {
+//----------------------------------------------------------
+//イベント処理
+//----------------------------------------------------------
+async function handleEvent(event, session) {
     if (event.type !== "message" || event.message.type !== "text") {
-    return Promise.resolve(null);
+        return Promise.resolve(null);
     }
 
+    // セッションにAPIキーを保存
+    if (!session.openaiApiKey) {
+        session.openaiApiKey = process.env.OPENAI_API_KEY;
+    }
+
+    // セッションに会話ログを保持
+    if (!session.conversationHistory) {
+        session.conversationHistory = [];
+    }
+
+    // リセットメッセージ処理
+    if (event.message.text.toLowerCase() === "リセット") {
+        session.conversationHistory = [];
+        return client.replyMessage({
+            replyToken: event.replyToken,
+            messages: [
+                {
+                    type: "text",
+                    text: "会話ログがリセットされました。",
+                },
+            ],
+        });
+    }
+
+    // 会話ログにユーザーメッセージを追加
+    session.conversationHistory.push({ role: "user", content: event.message.text });
+    console.log(...session.conversationHistory)
+    // GPT呼び出し
+    const openaiInstance = new OpenAiClass(session.openaiApiKey);
+    let aiResponse;
+    try {
+        aiResponse = await openaiInstance.main(session.conversationHistory);
+    } catch (error) {
+        aiResponse = "Error processing your request.";
+    }
+
+    // 会話ログにAIの応答を追加
+    session.conversationHistory.push({ role: "assistant", content: aiResponse });
+
+    // 返信処理
     return client.replyMessage({
     replyToken: event.replyToken,
     messages: [
         {
         type: "text",
-        text: event.message.text,
+        // text: event.message.text,
+        text: aiResponse,
         },
     ],
     });
