@@ -1,22 +1,31 @@
 "use strict";
 
 // ライブラリのインポート
-const OpenAI = require("openai");
+// const { Configuration, OpenAIApi } = require("openai");
+const Configuration = require("openai");
+const OpenAIApi = require("openai");
 
 class OpenAiClass {
     constructor(apiKey) {
-        this.openai = new OpenAI(apiKey);
+        const configuration = new Configuration({
+            apiKey: apiKey,
+        });
+        this.openai = new OpenAIApi(configuration);
     }
 
-    async main() {
+    async main(conversationHistory) {
         try {
             const completion = await this.openai.chat.completions.create({
-                messages: [{ role: "system", content: "親切な日本人" }],
                 model: "gpt-3.5-turbo",
+                messages: [
+                    { role: "system", content: "質問に対して、ユーモアを含めて回答してください。" },
+                    ...conversationHistory,
+                    // {role: 'user', content: 'あ'},
+                ],
             });
 
-            console.log(completion.choices[0]);
-            return completion.choices[0].message.content;    
+            console.log(completion.choices[0].message);
+            return completion.choices[0].message.content;
         } catch (error) {
             console.error("Error creating completion:", error);
             throw error;
