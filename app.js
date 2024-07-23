@@ -6,6 +6,7 @@ const line = require("@line/bot-sdk");
 require("dotenv").config();
 const OpenAiClass = require("./openai");
 const session = require("express-session");
+// const { TableClient, AzureNamedKeyCredential } = require("@azure/data-tables");
 
 const app = express();
 
@@ -24,6 +25,12 @@ const config = {
 const client = new line.messagingApi.MessagingApiClient({
     channelAccessToken: config.channelAccessToken,
 });
+
+// const tableClient = new TableClient(
+//     `https://${process.env.AZURE_STORAGE_ACCOUNT_NAME}.table.core.windows.net`,
+//     tableName,
+//     new AzureNamedKeyCredential(process.env.AZURE_STORAGE_ACCOUNT_NAME, process.env.AZURE_STORAGE_ACCOUNT_KEY)
+// );
 
 // Webhook応答
 app.use("/webhook", line.middleware(config));
@@ -51,8 +58,10 @@ async function handleEvent(event, session) {
         session.conversationHistory = [];
     }
 
+    let message = event.message.text.toLowerCase();
+
     // リセットメッセージ処理
-    if (event.message.text.toLowerCase() === "リセット") {
+    if (message === "[リセット]") {
         session.conversationHistory = [];
         return client.replyMessage({
             replyToken: event.replyToken,
@@ -63,6 +72,10 @@ async function handleEvent(event, session) {
                 },
             ],
         });
+    }
+    // システムメッセージ処理
+    if (message === "[使い方]" ||message === "[準備中]") {
+        return Promise.resolve(null);
     }
 
     // 会話ログにユーザーメッセージを追加

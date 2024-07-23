@@ -13,13 +13,13 @@ class OpenAiClass {
         this.openai = new OpenAIApi(configuration);
     }
 
-    async main(conversationHistory) {
+    async main(conversation) {
         try {
             const completion = await this.openai.chat.completions.create({
                 model: "gpt-3.5-turbo",
                 messages: [
-                    { role: "system", content: "質問に対して、ユーモアを含めて回答してください。" },
-                    ...conversationHistory,
+                    { role: "system", content: "質問に対して、簡潔に回答してください。" },
+                    ...conversation,
                     // {role: 'user', content: 'あ'},
                 ],
             });
